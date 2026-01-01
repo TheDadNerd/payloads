@@ -19,17 +19,17 @@ type ERROR_DIALOG >/dev/null 2>&1 || ERROR_DIALOG() { echo "ERROR: $*" >&2; }
 type ALERT >/dev/null 2>&1 || ALERT() { echo "$*"; }
 type LOG_INFO >/dev/null 2>&1 || LOG_INFO() { echo "$*"; }
 type LOG_ERROR >/dev/null 2>&1 || LOG_ERROR() { echo "ERROR: $*" >&2; }
-type CONFIRM_DIALOG >/dev/null 2>&1 || CONFIRM_DIALOG() {
-    local prompt="$1"
-    local reply=""
-    ALERT "$prompt"
-    while true; do
-        read -r -p "Enter y/N: " reply
-        case "$reply" in
-            [Yy]*) return 0 ;;
-            [Nn]*|"") return 1 ;;
-        esac
-    done
+type MSG >/dev/null 2>&1 || MSG() { echo "$*"; }
+type RESP >/dev/null 2>&1 || RESP() {
+    local __var="$1"
+    local __prompt="${2:-}"
+    local __reply=""
+    if [[ -n "$__prompt" ]]; then
+        read -r -p "$__prompt" __reply
+    else
+        read -r __reply
+    fi
+    printf -v "$__var" '%s' "$__reply"
 }
 
 # =============================================================================
@@ -257,7 +257,9 @@ if [[ "$found_any" == false ]]; then
 fi
 
 if [[ "$error_count" -eq 0 ]]; then
-    if CONFIRM_DIALOG "Hashtopolis Upload - All uploads succeeded. Remove local handshake files in $HANDSHAKE_DIR?"; then
+    MSG "Hashtopolis Upload - All uploads succeeded. Remove local handshake files in $HANDSHAKE_DIR?"
+    RESP cleanup_reply "Enter y/N: "
+    if [[ "$cleanup_reply" =~ ^[Yy]$ ]]; then
         # All uploads succeeded, clean out the loot directory files.
         find "$HANDSHAKE_DIR" -type f -print0 | xargs -0 rm -f
         LOG_INFO "Hashtopolis Upload - Cleaned up files in $HANDSHAKE_DIR"
