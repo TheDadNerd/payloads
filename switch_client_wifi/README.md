@@ -1,9 +1,10 @@
 **Client Wifi Picker**
 
 **Overview**
-This payload switches the WiFi Pineapple Pager into client mode WiFi by selecting
-from saved SSID profiles. It prompts the user, applies the chosen network settings
-via UCI, and reloads wireless.
+This payload quickly switches the WiFi Pineapple Pager client WiFi between saved
+networks you have already entered, so you do not have to type SSIDs and passwords
+every time. It prompts the user, applies the chosen network settings via UCI, and
+reloads wireless.
 
 **What it does**
 - Presents a menu of configured SSIDs via Pager dialogs
@@ -20,6 +21,7 @@ persist across firmware upgrades.
 
 Run the `switch_client_wifi_configuration` payload to create, view, or update profiles.
 The configuration payload saves profiles under the payload name `switch_client_wifi`.
+If you want to add or delete networks later, run the configuration payload again.
 
 **Notes**
 - Encryption choices: Open, WPA2 PSK, WPA2 PSK/WPA3 SAE, WPA3 SAE (personal).

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Title: Client WiFi Picker
 # Author: TheDadNerd
-# Description: Switches client mode WiFi using a selected profile
+# Description: Switches client mode WiFi between a selection of saved networks
 # Version: 1.0
 # Category: general
 
@@ -42,8 +42,9 @@ PASSWORDS=()
 ENCRYPTIONS=()
 config_count=$(get_payload_config "count")
 if ! [[ "$config_count" =~ ^[0-9]+$ ]] || [[ "$config_count" -lt 1 ]]; then
-    ERROR_DIALOG "No saved WiFi profiles. Run Client Wifi Picker Configuration first."
-    exit 1
+    LOG "No saved WiFi profiles. Run Client Wifi Picker Configuration first."
+    ALERT "No saved WiFi profiles.\nRun Client Wifi Picker Configuration first."
+    exit 0
 fi
 for idx in $(seq 1 "$config_count"); do
     ssid=$(get_payload_config "ssid_$idx")
