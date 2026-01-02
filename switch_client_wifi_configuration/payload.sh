@@ -92,23 +92,54 @@ save_profiles() {
 if load_profiles; then
     LOG "Existing WiFi profiles found."
     while :; do
+        # Main config menu for existing profiles.
         ack=$(PROMPT "Config options:\n1) Delete all\n2) Delete one\n3) Add new\n4) View networks\n5) Exit" "")
         handle_picker_status $?
         action=$(NUMBER_PICKER "Choose option (1-5)" 3)
         handle_picker_status $?
         case "$action" in
             1)
-                SSIDS=()
-                PASSWORDS=()
-                ENCRYPTIONS=()
+                # Confirm and delete all saved profiles immediately.
+                RESP=$(CONFIRMATION_DIALOG "Delete all saved networks?")
+                case "$RESP" in
+                    $DUCKYSCRIPT_USER_CONFIRMED)
+                        SSIDS=()
+                        PASSWORDS=()
+                        ENCRYPTIONS=()
+                        save_profiles
+                        ;;
+                    $DUCKYSCRIPT_USER_DENIED)
+                        continue
+                        ;;
+                    *)
+                        exit 1
+                        ;;
+                esac
+
+                # Optionally add new profiles after deletion.
+                RESP=$(CONFIRMATION_DIALOG "Add a new network now?")
+                case "$RESP" in
+                    $DUCKYSCRIPT_USER_CONFIRMED) ;;
+                    $DUCKYSCRIPT_USER_DENIED) exit 0 ;;
+                    *) exit 1 ;;
+                esac
                 break
                 ;;
-            2)
-                while [[ "${#SSIDS[@]}" -gt 0 ]]; do
-                    MENU="Select a network to delete:\n"
-                    for i in "${!SSIDS[@]}"; do
-                        MENU+="\n$((i + 1))) ${SSIDS[$i]}"
-                    done
+        2)
+            # Confirm and delete one or more profiles.
+            RESP=$(CONFIRMATION_DIALOG "Delete a saved network?")
+            case "$RESP" in
+                $DUCKYSCRIPT_USER_CONFIRMED) ;;
+                $DUCKYSCRIPT_USER_DENIED) continue ;;
+                *) exit 1 ;;
+            esac
+
+            while [[ "${#SSIDS[@]}" -gt 0 ]]; do
+                # Show a picker for which profile to delete.
+                MENU="Select a network to delete:\n"
+                for i in "${!SSIDS[@]}"; do
+                    MENU+="\n$((i + 1))) ${SSIDS[$i]}"
+                done
                     ack=$(PROMPT "$MENU" "")
                     handle_picker_status $?
                     del_choice=$(NUMBER_PICKER "Delete which (1-${#SSIDS[@]})" 1)
@@ -121,6 +152,7 @@ if load_profiles; then
                     NEW_SSIDS=()
                     NEW_PASSWORDS=()
                     NEW_ENCRYPTIONS=()
+                    # Rebuild arrays without the deleted entry.
                     for i in "${!SSIDS[@]}"; do
                         if [[ "$i" -ne "$del_index" ]]; then
                             NEW_SSIDS+=("${SSIDS[$i]}")
@@ -137,6 +169,7 @@ if load_profiles; then
                         break
                     fi
 
+                    # Allow multiple deletions in one session.
                     RESP=$(CONFIRMATION_DIALOG "Delete another network?")
                     case "$RESP" in
                         $DUCKYSCRIPT_USER_CONFIRMED) ;;
@@ -145,14 +178,24 @@ if load_profiles; then
                     esac
                 done
 
+                # Persist the remaining profiles.
                 save_profiles
                 ALERT "Saved ${#SSIDS[@]} remaining profiles."
-                exit 0
+                # Offer to add new profiles after deletions.
+                RESP=$(CONFIRMATION_DIALOG "Add a new network now?")
+                case "$RESP" in
+                    $DUCKYSCRIPT_USER_CONFIRMED) ;;
+                    $DUCKYSCRIPT_USER_DENIED) exit 0 ;;
+                    *) exit 1 ;;
+                esac
+                break
                 ;;
             3)
+                # Proceed to add new networks.
                 break
                 ;;
             4)
+                # Display saved SSIDs without editing.
                 MENU="Saved networks:\n"
                 for i in "${!SSIDS[@]}"; do
                     MENU+="\n$((i + 1))) ${SSIDS[$i]}"
@@ -174,6 +217,7 @@ fi
 LOG "Entering WiFi profiles..."
 
 while :; do
+    # Prompt for SSID, which is required.
     ssid=$(TEXT_PICKER "SSID" "")
     handle_picker_status $?
     if [[ -z "$ssid" ]]; then
@@ -181,6 +225,7 @@ while :; do
         continue
     fi
 
+    # Choose encryption type before asking for a password.
     LOG "Selecting encryption for $ssid..."
     ack=$(PROMPT "Select encryption:\n1) Open\n2) WPA2 PSK\n3) WPA2 PSK/WPA3 SAE\n4) WPA3 SAE (personal)" "")
     handle_picker_status $?
@@ -196,14 +241,19 @@ while :; do
 
     password=""
     if [[ "$encryption" != "none" ]]; then
+        # Only prompt for a password on secured networks.
         password=$(TEXT_PICKER "Password" "")
         handle_picker_status $?
     fi
 
+    # Store the profile and persist immediately for partial sessions.
     SSIDS+=("$ssid")
     PASSWORDS+=("$password")
     ENCRYPTIONS+=("$encryption")
+    # Persist after each entry so partial sessions are saved.
+    save_profiles
 
+    # Repeat until the user finishes adding networks.
     RESP=$(CONFIRMATION_DIALOG "Add another network?")
     case "$RESP" in
         $DUCKYSCRIPT_USER_CONFIRMED) ;;

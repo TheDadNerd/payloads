@@ -135,14 +135,7 @@ fi
 uci commit wireless
 
 LOG "Applying WiFi settings..."
-if ip link show wlan0cli >/dev/null 2>&1; then
-    ip link set wlan0cli down
-    sleep 2
-    ip link set wlan0cli up
-else
-    ifconfig wlan0cli down
-    sleep 2
-    ifconfig wlan0cli up
-fi
+wifi reload
 
+LOG "WiFi settings applied for $ssid"
 ALERT "WiFi settings applied.\nSelected network: $ssid"

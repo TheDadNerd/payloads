@@ -10,7 +10,7 @@ via UCI, and reloads wireless.
 - Prompts for a selection and confirmation
 - Updates the client mode (sta) wireless profile with the selected SSID,
   encryption type, and password
-- Reloads WiFi to apply changes (with a 20-second timeout)
+- Reloads WiFi to apply changes
 - Writes status updates to the Pager log throughout the process
 
 **Configuration**
@@ -23,8 +23,7 @@ The configuration payload saves profiles under the payload name `switch_client_w
 
 **Notes**
 - Encryption choices: Open, WPA2 PSK, WPA2 PSK/WPA3 SAE, WPA3 SAE (personal).
-- The script detects the first `sta` section in `uci show wireless`. If none is
-  found, it defaults to `wlan0cli`.
+- The script targets the client interface section `wlan0cli`.
 
 **Usage**
 1) Copy both payload folders to the Pager.
