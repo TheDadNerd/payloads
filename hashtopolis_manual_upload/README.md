@@ -1,4 +1,6 @@
 # Hashtopolis Handshake Upload
+Credit to Hunt-Z who wrote the original documentation and scripts for doing this automatically as an Alert. The documentation and script was modified by TheDadNerd to run the script manually instead of in real-time. This is useful for when you are collecting handshakes but not connected to the internet. This script also offers to delete the handshakes from the pager after they are uploaded. 
+
 WiFi Pineapple manual upload script
 
 Manually upload captured WPA/WPA2 handshakes from your WiFi Pineapple to a Hashtopolis distributed cracking server.
@@ -20,6 +22,7 @@ This script integrates your WiFi Pineapple with Hashtopolis to create a seamless
 
 **Without this payload:**
 - Manually download handshakes from Pineapple
+- Manually convert the handshakes to base64
 - Manually upload to Hashtopolis web interface
 - Manually create task and assign hashlist
 - Time-consuming, error-prone, requires device access
