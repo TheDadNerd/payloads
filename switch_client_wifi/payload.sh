@@ -1,16 +1,16 @@
 #!/bin/bash
-# Title: Switch Client WiFi
+# Title: Client WiFi Picker
 # Author: TheDadNerd
 # Description: Switches client mode WiFi using a selected profile
 # Version: 1.0
 # Category: general
 
 # =============================================================================
-# INTERNALS: helper functions and configuration bootstrap
+# INTERNALS: helpers and config storage
 # =============================================================================
 
 handle_picker_status() {
-    # Normalizes DuckyScript dialog exit codes.
+    # Normalize DuckyScript dialog exit codes.
     local status="$1"
     case "$status" in
         "$DUCKYSCRIPT_CANCELLED")
@@ -28,40 +28,48 @@ handle_picker_status() {
     esac
 }
 
-# Config location on the Pager.
-CONFIG_DIR="/root/payloadconfigs/switch_client_wifi"
-CONFIG_FILE="$CONFIG_DIR/networks.conf"
+# Pager CONFIG storage key namespace.
+PAYLOAD_NAME="switch_client_wifi"
 
-# Ensure config directory exists.
-if [[ ! -d "$CONFIG_DIR" ]]; then
-    mkdir -p "$CONFIG_DIR"
-    ALERT "Created $CONFIG_DIR.\nEdit networks.conf before running again."
+get_payload_config() {
+    # Wrapper for payload config reads.
+    PAYLOAD_GET_CONFIG "$PAYLOAD_NAME" "$1" 2>/dev/null
+}
+
+set_payload_config() {
+    # Wrapper for payload config writes.
+    PAYLOAD_SET_CONFIG "$PAYLOAD_NAME" "$1" "$2"
+}
+
+# Load or collect saved profiles.
+config_count=$(get_payload_config "count")
+if [[ "$config_count" =~ ^[0-9]+$ ]] && [[ "$config_count" -ge 1 ]]; then
+    # Allow the user to reset saved profiles.
+    RESP=$(CONFIRMATION_DIALOG "Reconfigure saved WiFi profiles?")
+    case "$RESP" in
+        $DUCKYSCRIPT_USER_CONFIRMED)
+            for idx in $(seq 1 "$config_count"); do
+                PAYLOAD_DEL_CONFIG "$PAYLOAD_NAME" "ssid_$idx"
+                PAYLOAD_DEL_CONFIG "$PAYLOAD_NAME" "pass_$idx"
+                PAYLOAD_DEL_CONFIG "$PAYLOAD_NAME" "enc_$idx"
+            done
+            PAYLOAD_DEL_CONFIG "$PAYLOAD_NAME" "count"
+            config_count=0
+            ;;
+        $DUCKYSCRIPT_USER_DENIED)
+            ;;
+        *)
+            exit 1
+            ;;
+    esac
 fi
 
-# Bootstrap config file if missing; optionally prompt for interactive entry.
-if [[ ! -f "$CONFIG_FILE" ]]; then
-    ALERT "No config found. Creating a new one at:\n$CONFIG_FILE"
+if ! [[ "$config_count" =~ ^[0-9]+$ ]] || [[ "$config_count" -lt 1 ]]; then
+    LOG "No saved WiFi profiles found."
     RESP=$(CONFIRMATION_DIALOG "Do you want to enter your WiFi networks now?")
     case "$RESP" in
         $DUCKYSCRIPT_USER_DENIED)
-            ALERT "Created $CONFIG_DIR.\nEdit networks.conf before running again."
-            cat <<'EOF' >"$CONFIG_FILE"
-#!/bin/bash
-# WiFi profiles for Switch Client WiFi payload.
-
-SSIDS=(
-    "Office-WiFi"
-)
-
-PASSWORDS=(
-    "ChangeMe123!"
-)
-
-# Optional: per-network encryption (default psk2). Use "none" for open.
-ENCRYPTIONS=(
-    "psk2"
-)
-EOF
+            LOG "No networks saved. Re-run the payload to configure."
             exit 1
             ;;
         $DUCKYSCRIPT_USER_CONFIRMED)
@@ -84,19 +92,30 @@ EOF
             ERROR_DIALOG "SSID cannot be empty."
             continue
         fi
-
-        password=$(TEXT_PICKER "Password" "")
+        LOG "Selecting encryption for $ssid..."
+        ALERT "Select encryption:\n1) Open\n2) WPA2 PSK\n3) WPA2 PSK/WPA3 SAE\n4) WPA3 SAE (personal)"
+        WAIT_FOR_BUTTON_PRESS
+        enc_choice=$(NUMBER_PICKER "Encryption (1-4)" 2)
         handle_picker_status $?
+        case "$enc_choice" in
+            1) encryption="none" ;;
+            2) encryption="psk2" ;;
+            3) encryption="sae-mixed" ;;
+            4) encryption="sae" ;;
+            *) ERROR_DIALOG "Invalid encryption selection: $enc_choice"; continue ;;
+        esac
+
+        password=""
+        if [[ "$encryption" != "none" ]]; then
+            password=$(TEXT_PICKER "Password" "")
+            handle_picker_status $?
+        fi
 
         SSIDS+=("$ssid")
         PASSWORDS+=("$password")
-        if [[ -z "$password" ]]; then
-            ENCRYPTIONS+=("none")
-        else
-            ENCRYPTIONS+=("psk2")
-        fi
+        ENCRYPTIONS+=("$encryption")
 
-        RESP=$(CONFIRMATION_DIALOG "Add another network or done?")
+        RESP=$(CONFIRMATION_DIALOG "Add another network?")
         case "$RESP" in
             $DUCKYSCRIPT_USER_CONFIRMED) ;;
             $DUCKYSCRIPT_USER_DENIED) break ;;
@@ -105,45 +124,42 @@ EOF
     done
 
     if [[ "${#SSIDS[@]}" -eq 0 ]]; then
-        ERROR_DIALOG "No networks entered. Edit $CONFIG_FILE and try again."
+        ERROR_DIALOG "No networks entered. Re-run the payload to configure."
         exit 1
     fi
 
-    # Write the config file in a simple bash format for sourcing.
-    {
-        echo '#!/bin/bash'
-        echo '# WiFi profiles for Switch Client WiFi payload.'
-        echo
-        echo 'SSIDS=('
-        for ssid in "${SSIDS[@]}"; do
-            printf '    "%s"\n' "$ssid"
-        done
-        echo ')'
-        echo
-        echo 'PASSWORDS=('
-        for password in "${PASSWORDS[@]}"; do
-            printf '    "%s"\n' "$password"
-        done
-        echo ')'
-        echo
-        echo '# Optional: per-network encryption (default psk2). Use "none" for open.'
-        echo 'ENCRYPTIONS=('
-        for enc in "${ENCRYPTIONS[@]}"; do
-            printf '    "%s"\n' "$enc"
-        done
-        echo ')'
-    } >"$CONFIG_FILE"
-
-    ALERT "Saved $CONFIG_FILE.\nRe-run the payload to connect."
-    exit 0
+    # Persist profiles using payload config storage.
+    for i in "${!SSIDS[@]}"; do
+        idx=$((i + 1))
+        set_payload_config "ssid_$idx" "${SSIDS[$i]}"
+        set_payload_config "pass_$idx" "${PASSWORDS[$i]}"
+        set_payload_config "enc_$idx" "${ENCRYPTIONS[$i]}"
+    done
+    set_payload_config "count" "${#SSIDS[@]}"
+    LOG "Saved ${#SSIDS[@]} WiFi profiles."
 fi
 
-# Load configured networks.
-source "$CONFIG_FILE"
+# Load configured networks from payload storage.
+SSIDS=()
+PASSWORDS=()
+ENCRYPTIONS=()
+config_count=$(get_payload_config "count")
+if ! [[ "$config_count" =~ ^[0-9]+$ ]] || [[ "$config_count" -lt 1 ]]; then
+    ERROR_DIALOG "No saved WiFi profiles. Re-run the payload to configure."
+    exit 1
+fi
+for idx in $(seq 1 "$config_count"); do
+    ssid=$(get_payload_config "ssid_$idx")
+    password=$(get_payload_config "pass_$idx")
+    encryption=$(get_payload_config "enc_$idx")
+    SSIDS+=("$ssid")
+    PASSWORDS+=("$password")
+    ENCRYPTIONS+=("${encryption:-psk2}")
+done
 
 # Validate config arrays.
 if [[ "${#SSIDS[@]}" -eq 0 ]]; then
-    ERROR_DIALOG "No SSIDs configured. Edit networks.conf to add networks."
+    ERROR_DIALOG "No SSIDs configured. Re-run the payload to configure."
     exit 1
 fi
 
@@ -164,7 +180,9 @@ for i in "${!SSIDS[@]}"; do
 done
 
 LOG "Building network list..."
-ALERT "$MENU"
+LOG "$MENU"
+LOG "Waiting for user to review list..."
+WAIT_FOR_BUTTON_PRESS
 
 LOG "Awaiting user selection..."
 choice=$(NUMBER_PICKER "Pick a network (1-${#SSIDS[@]})" 1)
@@ -203,16 +221,16 @@ esac
 # =============================================================================
 
 LOG "Preparing client mode configuration..."
-# Find the first STA (client mode) wireless section.
-CLIENT_SECTION=$(uci show wireless 2>/dev/null | awk -F'[.=]' '
-/=wifi-iface/ {section=$2}
-/mode='\''sta'\''/ {print section}
-' | head -n 1)
-
-if [[ -z "$CLIENT_SECTION" ]]; then
-    CLIENT_SECTION="wlan0cli"
-    LOG "Client section not found, defaulting to $CLIENT_SECTION"
-fi
+# Ensure the spinner stops even if the script errors out.
+SPINNER_ID=""
+cleanup_spinner() {
+    if [[ -n "$SPINNER_ID" ]]; then
+        STOP_SPINNER "$SPINNER_ID"
+    fi
+}
+trap cleanup_spinner EXIT
+# Use the Pager client-mode interface section.
+CLIENT_SECTION="wlan0cli"
 
 # Apply SSID and security settings.
 LOG "Updating client profile: $ssid"
@@ -229,37 +247,10 @@ fi
 uci commit wireless
 
 LOG "Applying WiFi settings..."
-id=$(START_SPINNER "Applying WiFi settings")
-wifi reload
-
-# =============================================================================
-# WAIT FOR IP ASSIGNMENT
-# =============================================================================
-
-# Determine the client interface name and wait for DHCP.
-CLIENT_IFACE=$(uci -q get wireless."$CLIENT_SECTION".ifname)
-if [[ -z "$CLIENT_IFACE" ]]; then
-    CLIENT_IFACE="wlan0cli"
-    LOG "Client interface not found, defaulting to $CLIENT_IFACE"
+SPINNER_ID=$(START_SPINNER "Applying WiFi settings")
+if ! timeout 20s wifi reload; then
+    LOG "WiFi reload timed out after 20 seconds."
 fi
 
-CLIENT_IP=""
-for _ in $(seq 1 10); do
-    LOG "Waiting for IP on $CLIENT_IFACE..."
-    CLIENT_IP=$(ip -4 addr show "$CLIENT_IFACE" 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1 | head -n 1)
-    if [[ -n "$CLIENT_IP" ]]; then
-        break
-    fi
-    sleep 2
-done
-
-STOP_SPINNER $id
-
-if [[ -n "$CLIENT_IP" ]]; then
-    LOG "Connected: $ssid"
-    LOG "Client IP: $CLIENT_IP"
-    ALERT "Connected to $ssid\nClient IP: $CLIENT_IP"
-else
-    ERROR_DIALOG "No IP detected on $CLIENT_IFACE. Check WiFi credentials or coverage."
-    exit 1
-fi
+STOP_SPINNER "$SPINNER_ID"
+LOG "WiFi settings applied for $ssid"
