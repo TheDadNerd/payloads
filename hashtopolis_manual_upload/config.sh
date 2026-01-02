@@ -12,7 +12,7 @@
 
 # Hashtopolis Server URL
 # This should point to your Hashtopolis API endpoint
-# Example: http://192.168.1.100/api/user.php
+# Example: http://192.168.1.100:8080/api/user.php
 # Example: https://hashtopolis.example.com/api/user.php
 export HASHTOPOLIS_URL="http://example.com/api/user.php"
 
