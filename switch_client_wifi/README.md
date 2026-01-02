@@ -14,13 +14,12 @@ via UCI, and reloads wireless.
 - Writes status updates to the Pager log throughout the process
 
 **Configuration**
-The payload stores profiles using the Pager CONFIG commands:
+Profiles are stored using the Pager CONFIG commands:
 `PAYLOAD_SET_CONFIG`, `PAYLOAD_GET_CONFIG`, and `PAYLOAD_DEL_CONFIG`. These values
 persist across firmware upgrades.
 
-On first run, the payload prompts you to enter SSIDs, encryption types, and passwords,
-then saves them as persistent options under the payload name `switch_client_wifi`.
-If profiles already exist, you will be prompted to reconfigure or keep them.
+Run the `switch_client_wifi_configuration` payload to create or update profiles.
+The configuration payload saves profiles under the payload name `switch_client_wifi`.
 
 **Notes**
 - Encryption choices: Open, WPA2 PSK, WPA2 PSK/WPA3 SAE, WPA3 SAE (personal).
@@ -28,9 +27,9 @@ If profiles already exist, you will be prompted to reconfigure or keep them.
   found, it defaults to `wlan0cli`.
 
 **Usage**
-1) Copy the payload folder to the Pager.
-2) Run the payload and enter SSIDs, encryption types, and passwords when prompted.
-3) Select the desired network from the prompt.
+1) Copy both payload folders to the Pager.
+2) Run `switch_client_wifi_configuration` to enter SSIDs, encryption types, and passwords.
+3) Run `switch_client_wifi` and select the desired network.
 
 **Files**
 - `payload.sh`: Main payload script for the Pager
