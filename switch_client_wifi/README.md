@@ -13,7 +13,12 @@ network settings via UCI, reloads wireless, and waits for a client IP to confirm
 - Writes status updates to the Pager log throughout the process
 
 **Configuration**
-Edit these arrays in `payload.sh` to match your networks:
+The payload reads its profiles from `/root/payloadconfigs/switch_client_wifi/networks.conf`.
+If the file does not exist, it will be created automatically on first run. You will
+be prompted to enter SSIDs and passwords on the Pager. You can also create or edit
+the config file ahead of time in that directory.
+
+The config file includes these arrays:
 - `SSIDS`: List of WiFi network names
 - `PASSWORDS`: Matching passwords (same order as SSIDS)
 - `ENCRYPTIONS`: Optional list of per-network encryption types
@@ -26,8 +31,9 @@ Edit these arrays in `payload.sh` to match your networks:
 
 **Usage**
 1) Copy the payload folder to the Pager.
-2) Edit `payload.sh` and set your SSIDs/passwords.
-3) Run the payload and select the desired network from the prompt.
+2) Run the payload to create `/root/payloadconfigs/switch_client_wifi/networks.conf`.
+3) Enter SSIDs and passwords when prompted, or edit the config file manually.
+4) Re-run the payload and select the desired network from the prompt.
 
 **Files**
 - `payload.sh`: Main payload script for the Pager
