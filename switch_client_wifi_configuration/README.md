@@ -9,7 +9,7 @@ as persistent options under the payload name `switch_client_wifi`.
 - Prompts for SSID, encryption type, and password
 - Supports Open, WPA2 PSK, WPA2 PSK/WPA3 SAE, and WPA3 SAE (personal)
 - Saves profiles using `PAYLOAD_SET_CONFIG`
-- Allows reconfiguration by clearing previous saved profiles
+- Allows delete-all, delete-one, add-new, and view options for existing profiles
 
 **Usage**
 1) Copy the payload folder to the Pager.

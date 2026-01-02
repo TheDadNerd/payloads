@@ -18,7 +18,7 @@ Profiles are stored using the Pager CONFIG commands:
 `PAYLOAD_SET_CONFIG`, `PAYLOAD_GET_CONFIG`, and `PAYLOAD_DEL_CONFIG`. These values
 persist across firmware upgrades.
 
-Run the `switch_client_wifi_configuration` payload to create or update profiles.
+Run the `switch_client_wifi_configuration` payload to create, view, or update profiles.
 The configuration payload saves profiles under the payload name `switch_client_wifi`.
 
 **Notes**

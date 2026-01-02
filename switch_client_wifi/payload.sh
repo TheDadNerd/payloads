@@ -77,9 +77,8 @@ for i in "${!SSIDS[@]}"; do
 done
 
 LOG "Building network list..."
-ALERT "$MENU"
-LOG "Waiting for user to review list..."
-WAIT_FOR_BUTTON_PRESS
+ack=$(PROMPT "$MENU" "")
+handle_picker_status $?
 
 LOG "Awaiting user selection..."
 choice=$(NUMBER_PICKER "Pick a network (1-${#SSIDS[@]})" 1)
@@ -118,14 +117,6 @@ esac
 # =============================================================================
 
 LOG "Preparing client mode configuration..."
-# Ensure the spinner stops even if the script errors out.
-SPINNER_ID=""
-cleanup_spinner() {
-    if [[ -n "$SPINNER_ID" ]]; then
-        STOP_SPINNER "$SPINNER_ID"
-    fi
-}
-trap cleanup_spinner EXIT
 # Use the Pager client-mode interface section.
 CLIENT_SECTION="wlan0cli"
 
@@ -144,7 +135,6 @@ fi
 uci commit wireless
 
 LOG "Applying WiFi settings..."
-SPINNER_ID=$(START_SPINNER "Applying WiFi settings")
 if ip link show wlan0cli >/dev/null 2>&1; then
     ip link set wlan0cli down
     sleep 2
@@ -155,5 +145,4 @@ else
     ifconfig wlan0cli up
 fi
 
-STOP_SPINNER "$SPINNER_ID"
-LOG "WiFi settings applied for $ssid"
+ALERT "WiFi settings applied.\nSelected network: $ssid"
