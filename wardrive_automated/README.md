@@ -7,8 +7,8 @@ This payload is experimental and a work in progress. I am waiting for Hak5
 alert-payload documentation to fully implement and validate this workflow.
 
 ## Overview
-This payload installs a USB hotplug trigger, detects GPS devices, sets the
-active device for `gpsd`, restarts the GPS daemon, and starts Wigle logging.
+This payload installs a USB hotplug trigger, detects GPS devices, configures
+the GPS device, restarts `gpsd`, and starts Wigle logging.
 
 ## Requirements
 - Hak5 WiFi Pineapple Pager
@@ -23,14 +23,15 @@ active device for `gpsd`, restarts the GPS daemon, and starts Wigle logging.
 2) The hotplug trigger will launch the payload automatically.
 
 ## Configuration
-- `gpsd.core.device` is set to the detected GPS device.
-- Baud rate is set to 9600 before restarting `gpsd`.
+- The GPS device is configured with `GPS_CONFIGURE` at 9600 baud.
+- `gpsd` is restarted after configuration.
 
 ## What It Does
 - Detects GPS devices under `/dev/ttyACM*` and `/dev/ttyUSB*`
-- Sets and enables `gpsd` with the detected device
+- Configures the GPS device via `GPS_CONFIGURE`
 - Restarts `gpsd` to apply the configuration
 - Starts Wigle logging
+- The hotplug trigger calls the payload with the detected device path
 
 ## Uninstall
 - Remove `/etc/hotplug.d/usb/99-wardrive-automated`.

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Title: Wardrive Automated
 # Author: TheDadNerd
-# Description: Detects GPS devices, updates gpsd config, restarts gpsd, and starts Wigle
+# Description: Detects GPS devices, configures GPS, and starts Wigle
 # Version: 1.0
 # Category: general
 
@@ -30,14 +30,15 @@ handle_picker_status() {
 }
 
 collect_gps_devices() {
-    # Build a de-duplicated list of possible GPS serial devices.
-    # Pager USB GPS modules commonly show up as ttyACM* or ttyUSB*.
+    # Use the Pager GPS_LIST command to discover serial GPS devices.
     local candidates=()
     local seen=()
     local dev
-    for dev in /dev/ttyACM* /dev/ttyUSB*; do
-        [[ -c "$dev" ]] || continue
-        # Avoid duplicate entries if globbing yields repeats.
+    local list_output
+
+    list_output="$(GPS_LIST 2>/dev/null)"
+    for dev in $(echo "$list_output" | tr ' ' '\n' | grep -E '^/dev/tty(ACM|USB)[0-9]+$' 2>/dev/null); do
+        # Avoid duplicate entries in case the command returns repeats.
         local already=0
         for existing in "${seen[@]}"; do
             if [[ "$existing" == "$dev" ]]; then
@@ -46,7 +47,6 @@ collect_gps_devices() {
             fi
         done
         if [[ "$already" -eq 0 ]]; then
-            # Track the device once and return it to the caller.
             candidates+=("$dev")
             seen+=("$dev")
         fi
@@ -129,40 +129,27 @@ if [[ -n "$provided_device" && -c "$provided_device" ]]; then
     selected_device="$provided_device"
     LOG "Using provided GPS device: $selected_device"
 else
-    # Prefer the existing configured device if it is still present.
-    configured_device="$(uci -q get gpsd.core.device 2>/dev/null)"
-    # Scan for attached GPS devices on common serial paths.
+    # Scan for attached GPS devices using GPS_LIST.
     devices=($(collect_gps_devices))
 
-    # Determine which device should be used this run.
-    if [[ -n "$configured_device" && -c "$configured_device" ]]; then
-        # Keep the stored device when it is still valid.
-        selected_device="$configured_device"
-        LOG "Using configured GPS device: $selected_device"
-    else
-        # If no stored device is valid, require detection or user choice.
-        if [[ "${#devices[@]}" -eq 0 ]]; then
-            ERROR_DIALOG "No GPS devices found. Check your USB GPS and try again."
-            exit 1
-        fi
-        # Ask the user which device to use when multiple are present.
-        selected_device="$(pick_gps_device "${devices[@]}")"
+    # If no devices are found, exit with an error.
+    if [[ "${#devices[@]}" -eq 0 ]]; then
+        ERROR_DIALOG "No GPS devices found. Check your USB GPS and try again."
+        exit 1
     fi
+    # Ask the user which device to use when multiple devices are present.
+    selected_device="$(pick_gps_device "${devices[@]}")"
 fi
 
-LOG "Applying GPS device configuration..."
-# Enable gpsd and set the selected device path.
-uci -q set gpsd.core.enabled="1"
-uci -q set gpsd.core.device="$selected_device"
-uci -q commit gpsd
-
-# Set the serial baud rate explicitly before restarting gpsd.
-LOG "Setting GPS device baud rate to 9600..."
-# Pager includes stty; no non-Pager fallback logic is needed.
-stty -F "$selected_device" 9600 2>/dev/null || true
+LOG "Configuring GPS device..."
+# Use DuckyScript GPS_CONFIGURE to set device and baud rate.
+GPS_CONFIGURE "$selected_device" 9600 >/dev/null 2>&1
+if [[ $? -ne 0 ]]; then
+    ERROR_DIALOG "Failed to configure GPS device."
+    exit 1
+fi
 
 LOG "Restarting gpsd..."
-# Pager uses OpenWrt init.d; restart gpsd directly.
 /etc/init.d/gpsd restart
 
 # Enable Wigle logging now that GPS is configured (no uploads are performed).
@@ -177,4 +164,4 @@ if [[ -n "$wigle_file" ]]; then
 fi
 
 # Final user-facing confirmation.
-ALERT "GPS device set to:\n$selected_device\n\ngpsd restarted.\nWigle logging started."
+ALERT "GPS device set to:\n$selected_device\n\ngpsd configured.\nWigle logging started."
