@@ -1,37 +1,39 @@
-## Client Wifi Picker
+# Client WiFi Picker
 
-### Overview
-This payload quickly switches the WiFi Pineapple Pager client WiFi between saved
-networks you have already entered, so you do not have to type SSIDs and passwords
-every time. It prompts the user and applies the chosen network settings using
-`WIFI_CONNECT`.
+Switches client mode WiFi between saved networks on the WiFi Pineapple Pager.
 
-### What it does
-- Presents a menu of configured SSIDs via Pager dialogs
-- Prompts for a selection and confirmation
-- Applies the selected SSID, encryption type, and password with `WIFI_CONNECT`
-- Writes status updates to the Pager log throughout the process
+## Overview
+This payload presents a menu of saved SSIDs, applies the selected network
+configuration via UCI, and reloads wireless.
 
-### Configuration
-Profiles are stored using the Pager CONFIG commands:
-`PAYLOAD_SET_CONFIG`, `PAYLOAD_GET_CONFIG`, and `PAYLOAD_DEL_CONFIG`. These values
-persist across firmware upgrades.
+## Requirements
+- Hak5 WiFi Pineapple Pager
+- Saved WiFi profiles (configure first)
 
-Run the `switch_client_wifi_configuration` payload to create, view, or update profiles.
-The configuration payload saves profiles under the payload name `switch_client_wifi`.
-If you want to add or delete networks later, run the configuration payload again.
-**Requirement:** The Client Wifi Picker Configuration payload must be installed and
-run at least once before using this payload.
+## Installation
+1) Copy `switch_client_wifi` and `switch_client_wifi_configuration` to `/root/payloads/`.
 
+## Usage
+1) Run `switch_client_wifi_configuration` to save SSIDs and passwords.
+2) Run `switch_client_wifi` and select a network.
 
-### Notes
-- Encryption choices: Open, WPA2 PSK, WPA2 PSK/WPA3 SAE, WPA3 SAE (personal).
-- The script targets the client interface section `wlan0cli`.
+## Configuration
+- Profiles are stored using `PAYLOAD_SET_CONFIG` under `switch_client_wifi`.
+- The client interface section used is `wlan0cli`.
 
-### Usage
-1) Copy both payload folders to the Pager.
-2) Run `switch_client_wifi_configuration` to enter SSIDs, encryption types, and passwords.
-3) Run `switch_client_wifi` and select the desired network.
+## What It Does
+- Displays a list of configured SSIDs
+- Prompts for selection and confirmation
+- Updates SSID, encryption, and key in UCI
+- Reloads WiFi to apply changes
 
-### Files
-- `payload.sh`: Main payload script for the Pager
+## Uninstall
+- Delete `/root/payloads/switch_client_wifi/` and `/root/payloads/switch_client_wifi_configuration/`.
+- Optional: remove saved profiles with the configuration payload.
+
+## Troubleshooting
+- If no profiles appear, run the configuration payload first.
+- If passwords mismatch, re-enter profiles in the configuration payload.
+
+## Changelog
+- 1.0: Initial client WiFi picker
