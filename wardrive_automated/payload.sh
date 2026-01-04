@@ -30,7 +30,8 @@ handle_picker_status() {
 }
 
 collect_gps_devices() {
-    # Use the Pager GPS_LIST command to discover serial GPS devices.
+    # Use GPS_LIST output to build a list of USB serial GPS devices.
+    # Filter to ttyACM* and ttyUSB* since those are typical GPS device nodes.
     local candidates=()
     local seen=()
     local dev
@@ -38,7 +39,7 @@ collect_gps_devices() {
 
     list_output="$(GPS_LIST 2>/dev/null)"
     for dev in $(echo "$list_output" | tr ' ' '\n' | grep -E '^/dev/tty(ACM|USB)[0-9]+$' 2>/dev/null); do
-        # Avoid duplicate entries in case the command returns repeats.
+        # Avoid duplicate entries in case GPS_LIST returns repeats.
         local already=0
         for existing in "${seen[@]}"; do
             if [[ "$existing" == "$dev" ]]; then
@@ -113,6 +114,7 @@ DEVICE="/dev/$DEVNAME"
 [ -c "$DEVICE" ] || exit 0
 
 logger -t wardrive_automated "GPS device detected: $DEVICE"
+# Pass the detected device path to the payload for direct configuration.
 /root/payloads/alerts/wardrive_automated/payload.sh "$DEVICE" >/dev/null 2>&1 &
 EOF
     chmod +x "$HOTPLUG_TARGET"
@@ -120,7 +122,7 @@ fi
 
 LOG "Detecting GPS devices..."
 
-# Optional device path override (used by hotplug add trigger).
+# Optional device path override passed by the hotplug trigger.
 provided_device="$1"
 
 # Prefer a provided device path when present and valid, otherwise auto-detect.
@@ -142,7 +144,7 @@ else
 fi
 
 LOG "Configuring GPS device..."
-# Use DuckyScript GPS_CONFIGURE to set device and baud rate.
+# Use DuckyScript GPS_CONFIGURE to set the device and baud rate.
 GPS_CONFIGURE "$selected_device" 9600 >/dev/null 2>&1
 if [[ $? -ne 0 ]]; then
     ERROR_DIALOG "Failed to configure GPS device."
@@ -150,6 +152,7 @@ if [[ $? -ne 0 ]]; then
 fi
 
 LOG "Restarting gpsd..."
+# Restart gpsd to apply the new GPS device configuration.
 /etc/init.d/gpsd restart
 
 # Enable Wigle logging now that GPS is configured (no uploads are performed).
