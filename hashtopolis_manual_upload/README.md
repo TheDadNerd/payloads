@@ -16,7 +16,7 @@ successful upload.
 - Hashcat cracker version ID
 
 ## Installation
-1) Copy `hashtopolis_manual_upload` to `/root/payloads/`.
+1) Copy `hashtopolis_manual_upload` to `/root/payloads/user/general/`.
 2) Create `hashtopolis_manual_upload/config.sh` with your server details.
 
 ## Usage

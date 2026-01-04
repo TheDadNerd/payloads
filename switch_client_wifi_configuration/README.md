@@ -10,7 +10,7 @@ using the Pager CONFIG commands for later selection.
 - Hak5 WiFi Pineapple Pager
 
 ## Installation
-1) Copy `switch_client_wifi_configuration` and `switch_client_wifi` to `/root/payloads/`.
+1) Copy `switch_client_wifi_configuration` and `switch_client_wifi` to `/root/payloads/user/general/`.
 
 ## Usage
 1) Run `switch_client_wifi_configuration`.

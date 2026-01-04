@@ -11,7 +11,7 @@ configuration via UCI, and reloads wireless.
 - Saved WiFi profiles (configure first)
 
 ## Installation
-1) Copy `switch_client_wifi` and `switch_client_wifi_configuration` to `/root/payloads/`.
+1) Copy `switch_client_wifi` and `switch_client_wifi_configuration` to `/root/payloads/user/general/`.
 
 ## Usage
 1) Run `switch_client_wifi_configuration` to save SSIDs and passwords.

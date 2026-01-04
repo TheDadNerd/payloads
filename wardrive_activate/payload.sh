@@ -93,12 +93,56 @@ pick_gps_device() {
 
 LOG "Detecting GPS devices..."
 
+# Payload config namespace for persistent settings.
+PAYLOAD_NAME="wardrive_activate"
+
+# Load stored baud rate, or prompt the user on first run.
+# Use --set-baud to change the saved value on demand.
+baud_rate="$(PAYLOAD_GET_CONFIG "$PAYLOAD_NAME" "baud" 2>/dev/null)"
+if [[ "$1" == "--set-baud" ]]; then
+    # Explicitly update the stored baud rate.
+    while :; do
+        baud_rate="$(TEXT_PICKER "Enter GPS baud rate (e.g., 4800, 9600, 115200)" "${baud_rate:-9600}")"
+        if [[ "$baud_rate" =~ ^[0-9]+$ ]]; then
+            break
+        fi
+        ERROR_DIALOG "Invalid baud rate. Enter numbers only."
+    done
+    PAYLOAD_SET_CONFIG "$PAYLOAD_NAME" "baud" "$baud_rate"
+    shift
+elif ! [[ "$baud_rate" =~ ^[0-9]+$ ]]; then
+    # First-time setup: confirm the common 9600 baud default.
+    RESP=$(CONFIRMATION_DIALOG "Use 9600 baud for GPS?")
+    case "$RESP" in
+        "$DUCKYSCRIPT_USER_CONFIRMED"|1)
+            baud_rate="9600"
+            ;;
+        "$DUCKYSCRIPT_USER_DENIED")
+            # Re-prompt until a numeric baud rate is provided.
+            while :; do
+                baud_rate="$(TEXT_PICKER "Enter GPS baud rate (e.g., 4800, 9600, 115200)" "")"
+                if [[ "$baud_rate" =~ ^[0-9]+$ ]]; then
+                    break
+                fi
+                ERROR_DIALOG "Invalid baud rate. Enter numbers only."
+            done
+            ;;
+        *)
+            ERROR_DIALOG "Cancelled."
+            exit 1
+            ;;
+    esac
+    # Persist the initial baud rate choice.
+    PAYLOAD_SET_CONFIG "$PAYLOAD_NAME" "baud" "$baud_rate"
+fi
+
 # Optional device path override from the caller (manual runs can pass a device).
 provided_device="$1"
 
 # Prefer a provided device path when present and valid, otherwise auto-detect.
 selected_device=""
 if [[ -n "$provided_device" && -c "$provided_device" ]]; then
+    # Trust the provided device path when it is a valid character device.
     selected_device="$provided_device"
     LOG "Using provided GPS device: $selected_device"
 else
@@ -124,8 +168,8 @@ else
 fi
 
 LOG "Configuring GPS device..."
-# Use DuckyScript GPS_CONFIGURE to set the device and baud rate.
-GPS_CONFIGURE "$selected_device" 9600 >/dev/null 2>&1
+# Use DuckyScript GPS_CONFIGURE to set the device and stored baud rate.
+GPS_CONFIGURE "$selected_device" "$baud_rate" >/dev/null 2>&1
 if [[ $? -ne 0 ]]; then
     ERROR_DIALOG "Failed to configure GPS device."
     exit 1
