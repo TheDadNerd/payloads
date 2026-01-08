@@ -21,7 +21,14 @@ successful upload.
 
 ## Usage
 1) Run the payload from the Pager UI.
-2) Follow prompts to upload and optionally clean up handshakes.
+2) When prompted, choose whether to save `config.sh` values into persistent payload config.
+3) Follow prompts to upload and optionally clean up handshakes.
+
+You can also provide a custom handshake directory as the first argument:
+
+```bash
+./payload.sh /path/to/handshakes
+```
 
 ## Configuration
 Create `config.sh` in the same directory as `payload.sh`:
@@ -36,6 +43,20 @@ ACCESS_GROUP_ID="1"
 SECRET_HASHLIST=false
 USE_BRAIN=false
 BRAIN_FEATURES=0
+```
+
+The payload stores these values in `PAYLOAD_SET_CONFIG` when you confirm the
+prompt. On later runs it loads from the saved config instead of reading the
+file directly.
+
+If `config.sh` still has the sample `example.com` URL or `YOUR_API_KEY_HERE`,
+the payload warns you and offers to exit so you can update the file before
+saving.
+
+To force an update without the prompt, run:
+
+```bash
+./payload.sh --update-config
 ```
 
 ### Hashtopolis Setup (Summary)
@@ -62,3 +83,4 @@ BRAIN_FEATURES=0
 
 ## Changelog
 - 1.0: Initial manual upload payload
+- 2.0: Save config to `PAYLOAD_SET_CONFIG` to preserve settings across mass payload updates.

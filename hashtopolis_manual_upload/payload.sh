@@ -2,7 +2,7 @@
 # Title: Hashtopolis Handshake Upload
 # Description: Manually uploads all captured handshakes to Hashtopolis server via API
 # Author: Originaly Hunt-Z modified by TheDadNerd
-# Version: 1.0
+# Version: 2.0
 # Category: general
 #
 # Requirements:
@@ -27,10 +27,71 @@ type CONFIRMATION_DIALOG >/dev/null 2>&1 || CONFIRMATION_DIALOG() {
 }
 
 # =============================================================================
+# PAYLOAD CONFIG STORAGE
+# =============================================================================
+
+PAYLOAD_NAME="hashtopolis_manual_upload"
+
+get_payload_config() {
+    PAYLOAD_GET_CONFIG "$PAYLOAD_NAME" "$1" 2>/dev/null
+}
+
+load_payload_config() {
+    # Pull the saved payload config into the runtime environment.
+    HASHTOPOLIS_URL="$(get_payload_config "hashtopolis_url")"
+    API_KEY="$(get_payload_config "api_key")"
+    HASH_TYPE="$(get_payload_config "hash_type")"
+    ACCESS_GROUP_ID="$(get_payload_config "access_group_id")"
+    SECRET_HASHLIST="$(get_payload_config "secret_hashlist")"
+    USE_BRAIN="$(get_payload_config "use_brain")"
+    BRAIN_FEATURES="$(get_payload_config "brain_features")"
+    PRETASK_ID="$(get_payload_config "pretask_id")"
+    CRACKER_VERSION_ID="$(get_payload_config "cracker_version_id")"
+
+    if [[ -z "$HASHTOPOLIS_URL" \
+        || -z "$API_KEY" \
+        || -z "$HASH_TYPE" \
+        || -z "$ACCESS_GROUP_ID" \
+        || -z "$SECRET_HASHLIST" \
+        || -z "$USE_BRAIN" \
+        || -z "$BRAIN_FEATURES" \
+        || -z "$PRETASK_ID" \
+        || -z "$CRACKER_VERSION_ID" ]]; then
+        return 1
+    fi
+
+    return 0
+}
+
+warn_if_sample_config() {
+    # Warn if config.sh still has the sample placeholders before saving.
+    if [[ "$HASHTOPOLIS_URL" == *"example.com"* ]] || [[ "$API_KEY" == "YOUR_API_KEY_HERE" ]]; then
+        if CONFIRMATION_DIALOG "config.sh still has sample values. Exit to edit now?"; then
+            exit 1
+        fi
+    fi
+    return 0
+}
+
+# =============================================================================
 # LOAD CONFIGURATION
 # =============================================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="$SCRIPT_DIR/config.sh"
+FORCE_CONFIG_UPDATE=false
+
+while [[ "$1" == --* ]]; do
+    case "$1" in
+        --update-config)
+            FORCE_CONFIG_UPDATE=true
+            shift
+            ;;
+        *)
+            ERROR_DIALOG "Hashtopolis Upload - Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
     ERROR_DIALOG "Hashtopolis Upload - Configuration file not found. Please create config.sh file."
@@ -40,26 +101,59 @@ fi
 source "$CONFIG_FILE"
 
 # =============================================================================
+# CONFIGURATION STORAGE (OPTIONAL UPDATE)
+# =============================================================================
+
+if [[ "$FORCE_CONFIG_UPDATE" == true ]] || CONFIRMATION_DIALOG "Update saved Hashtopolis config from config.sh?"; then
+    if ! warn_if_sample_config; then
+        exit 1
+    fi
+    if ! push_payload_config; then
+        ERROR_DIALOG "Hashtopolis Upload - Failed to store config from config.sh. Check values."
+        exit 1
+    fi
+fi
+
+if ! load_payload_config; then
+    if CONFIRMATION_DIALOG "No saved Hashtopolis config found. Save from config.sh now?"; then
+        if ! warn_if_sample_config; then
+            exit 1
+        fi
+        if ! push_payload_config; then
+            ERROR_DIALOG "Hashtopolis Upload - Failed to store config from config.sh. Check values."
+            exit 1
+        fi
+        if ! load_payload_config; then
+            ERROR_DIALOG "Hashtopolis Upload - Could not load saved config after update."
+            exit 1
+        fi
+    else
+        ERROR_DIALOG "Hashtopolis Upload - No saved config. Update from config.sh to continue."
+        exit 1
+    fi
+fi
+
+# =============================================================================
 # VALIDATE CONFIGURATION
 # =============================================================================
 
 if [[ "$HASHTOPOLIS_URL" == *"example.com"* ]]; then
-    ERROR_DIALOG "Hashtopolis Upload - Server URL not configured. Edit config.sh to set HASHTOPOLIS_URL."
+    ERROR_DIALOG "Hashtopolis Upload - Server URL not configured. Update saved config from config.sh."
     exit 1
 fi
 
 if [[ "$API_KEY" == "YOUR_API_KEY_HERE" ]] || [[ -z "$API_KEY" ]]; then
-    ERROR_DIALOG "Hashtopolis Upload - API key not configured. Edit config.sh to set API_KEY."
+    ERROR_DIALOG "Hashtopolis Upload - API key not configured. Update saved config from config.sh."
     exit 1
 fi
 
 if [[ -z "$PRETASK_ID" ]]; then
-    ERROR_DIALOG "Hashtopolis Upload - Pretask ID not configured. Edit config.sh to set PRETASK_ID."
+    ERROR_DIALOG "Hashtopolis Upload - Pretask ID not configured. Update saved config from config.sh."
     exit 1
 fi
 
 if [[ -z "$CRACKER_VERSION_ID" ]]; then
-    ERROR_DIALOG "Hashtopolis Upload - Cracker Version ID not configured. Edit config.sh to set CRACKER_VERSION_ID."
+    ERROR_DIALOG "Hashtopolis Upload - Cracker Version ID not configured. Update saved config from config.sh."
     exit 1
 fi
 
