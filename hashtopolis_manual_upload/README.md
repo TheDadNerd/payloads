@@ -21,7 +21,7 @@ successful upload.
 
 ## Usage
 1) Run the payload from the Pager UI.
-2) When prompted, choose whether to save `config.sh` values into persistent payload config.
+2) If prompted, choose whether to save `config.sh` values into persistent payload config.
 3) Follow prompts to upload and optionally clean up handshakes.
 
 You can also provide a custom handshake directory as the first argument:
@@ -34,24 +34,30 @@ You can also provide a custom handshake directory as the first argument:
 Create `config.sh` in the same directory as `payload.sh`:
 
 ```bash
-HASHTOPOLIS_URL="https://your-server/api/server.php"
-API_KEY="YOUR_API_KEY_HERE"
-PRETASK_ID="7"
-CRACKER_VERSION_ID="1"
-HASH_TYPE="22000"
-ACCESS_GROUP_ID="1"
-SECRET_HASHLIST=false
-USE_BRAIN=false
-BRAIN_FEATURES=0
+export HASHTOPOLIS_URL="https://your-server/api/user.php"
+export API_KEY="YOUR_API_KEY_HERE"
+export PRETASK_ID="7"
+export CRACKER_VERSION_ID="1"
+export HASH_TYPE="22000"
+export ACCESS_GROUP_ID="1"
+export SECRET_HASHLIST=false
+export USE_BRAIN=false
+export BRAIN_FEATURES=0
 ```
 
 The payload stores these values in `PAYLOAD_SET_CONFIG` when you confirm the
-prompt. On later runs it loads from the saved config instead of reading the
-file directly.
+prompt ("Hashtopolis config has not yet been saved. Pull and save from
+config.sh now?"). On later runs it loads from the saved config instead of
+reading the file directly. It only prompts to update the saved config when
+`config.sh` differs from what is already saved and the file is not using
+sample values.
 
 If `config.sh` still has the sample `example.com` URL or `YOUR_API_KEY_HERE`,
-the payload warns you and offers to exit so you can update the file before
-saving.
+the payload refuses to save and tells you: "Can't save from sample config,
+please populate config.sh."
+
+If `config.sh` looks reset to sample values but saved config exists, the
+payload offers to repopulate `config.sh` from the saved values.
 
 To force an update without the prompt, run:
 

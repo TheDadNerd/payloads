@@ -63,12 +63,82 @@ load_payload_config() {
     return 0
 }
 
+read_saved_config() {
+    # Load saved payload config into SAVED_* variables for comparison.
+    SAVED_HASHTOPOLIS_URL="$(get_payload_config "hashtopolis_url")"
+    SAVED_API_KEY="$(get_payload_config "api_key")"
+    SAVED_HASH_TYPE="$(get_payload_config "hash_type")"
+    SAVED_ACCESS_GROUP_ID="$(get_payload_config "access_group_id")"
+    SAVED_SECRET_HASHLIST="$(get_payload_config "secret_hashlist")"
+    SAVED_USE_BRAIN="$(get_payload_config "use_brain")"
+    SAVED_BRAIN_FEATURES="$(get_payload_config "brain_features")"
+    SAVED_PRETASK_ID="$(get_payload_config "pretask_id")"
+    SAVED_CRACKER_VERSION_ID="$(get_payload_config "cracker_version_id")"
+
+    if [[ -z "$SAVED_HASHTOPOLIS_URL" \
+        || -z "$SAVED_API_KEY" \
+        || -z "$SAVED_HASH_TYPE" \
+        || -z "$SAVED_ACCESS_GROUP_ID" \
+        || -z "$SAVED_SECRET_HASHLIST" \
+        || -z "$SAVED_USE_BRAIN" \
+        || -z "$SAVED_BRAIN_FEATURES" \
+        || -z "$SAVED_PRETASK_ID" \
+        || -z "$SAVED_CRACKER_VERSION_ID" ]]; then
+        return 1
+    fi
+
+    return 0
+}
+
+config_is_sample() {
+    # Returns success if the provided config values match sample placeholders.
+    local cfg_url="$1"
+    local cfg_key="$2"
+    if [[ "$cfg_url" == *"example.com"* ]] || [[ "$cfg_key" == "YOUR_API_KEY_HERE" ]]; then
+        return 0
+    fi
+    return 1
+}
+
+populate_config_from_saved() {
+    # Overwrite export lines in config.sh with saved payload config values.
+    local tmp_file
+    local url_escaped
+    local key_escaped
+
+    url_escaped="${SAVED_HASHTOPOLIS_URL//\\/\\\\}"
+    url_escaped="${url_escaped//\"/\\\"}"
+    key_escaped="${SAVED_API_KEY//\\/\\\\}"
+    key_escaped="${key_escaped//\"/\\\"}"
+
+    tmp_file="$(mktemp)"
+    awk -v url="$url_escaped" \
+        -v key="$key_escaped" \
+        -v hash_type="$SAVED_HASH_TYPE" \
+        -v access_group_id="$SAVED_ACCESS_GROUP_ID" \
+        -v secret_hashlist="$SAVED_SECRET_HASHLIST" \
+        -v use_brain="$SAVED_USE_BRAIN" \
+        -v brain_features="$SAVED_BRAIN_FEATURES" \
+        -v pretask_id="$SAVED_PRETASK_ID" \
+        -v cracker_version_id="$SAVED_CRACKER_VERSION_ID" '
+        /^export HASHTOPOLIS_URL=/ { print "export HASHTOPOLIS_URL=\"" url "\""; next }
+        /^export API_KEY=/ { print "export API_KEY=\"" key "\""; next }
+        /^export HASH_TYPE=/ { print "export HASH_TYPE=" hash_type; next }
+        /^export ACCESS_GROUP_ID=/ { print "export ACCESS_GROUP_ID=" access_group_id; next }
+        /^export SECRET_HASHLIST=/ { print "export SECRET_HASHLIST=" secret_hashlist; next }
+        /^export USE_BRAIN=/ { print "export USE_BRAIN=" use_brain; next }
+        /^export BRAIN_FEATURES=/ { print "export BRAIN_FEATURES=" brain_features; next }
+        /^export PRETASK_ID=/ { print "export PRETASK_ID=" pretask_id; next }
+        /^export CRACKER_VERSION_ID=/ { print "export CRACKER_VERSION_ID=" cracker_version_id; next }
+        { print }
+    ' "$CONFIG_FILE" > "$tmp_file" && mv "$tmp_file" "$CONFIG_FILE"
+}
+
 warn_if_sample_config() {
-    # Warn if config.sh still has the sample placeholders before saving.
+    # Block saving when config.sh still has the sample placeholders.
     if [[ "$HASHTOPOLIS_URL" == *"example.com"* ]] || [[ "$API_KEY" == "YOUR_API_KEY_HERE" ]]; then
-        if CONFIRMATION_DIALOG "config.sh still has sample values. Exit to edit now?"; then
-            exit 1
-        fi
+        ERROR_DIALOG "Hashtopolis Upload - Can't save from sample config, please populate config.sh."
+        return 1
     fi
     return 0
 }
@@ -100,11 +170,43 @@ fi
 
 source "$CONFIG_FILE"
 
+# Capture config.sh values for comparison without overwriting saved runtime config.
+CFG_HASHTOPOLIS_URL="$HASHTOPOLIS_URL"
+CFG_API_KEY="$API_KEY"
+CFG_HASH_TYPE="$HASH_TYPE"
+CFG_ACCESS_GROUP_ID="$ACCESS_GROUP_ID"
+CFG_SECRET_HASHLIST="$SECRET_HASHLIST"
+CFG_USE_BRAIN="$USE_BRAIN"
+CFG_BRAIN_FEATURES="$BRAIN_FEATURES"
+CFG_PRETASK_ID="$PRETASK_ID"
+CFG_CRACKER_VERSION_ID="$CRACKER_VERSION_ID"
+HAS_SAVED_CONFIG=false
+
+if read_saved_config; then
+    HAS_SAVED_CONFIG=true
+    if config_is_sample "$CFG_HASHTOPOLIS_URL" "$CFG_API_KEY"; then
+        # Offer to restore config.sh from saved config if the file looks reset.
+        if CONFIRMATION_DIALOG "config.sh looks reset to sample values. Populate it from saved config?"; then
+            populate_config_from_saved
+            CFG_HASHTOPOLIS_URL="$SAVED_HASHTOPOLIS_URL"
+            CFG_API_KEY="$SAVED_API_KEY"
+            CFG_HASH_TYPE="$SAVED_HASH_TYPE"
+            CFG_ACCESS_GROUP_ID="$SAVED_ACCESS_GROUP_ID"
+            CFG_SECRET_HASHLIST="$SAVED_SECRET_HASHLIST"
+            CFG_USE_BRAIN="$SAVED_USE_BRAIN"
+            CFG_BRAIN_FEATURES="$SAVED_BRAIN_FEATURES"
+            CFG_PRETASK_ID="$SAVED_PRETASK_ID"
+            CFG_CRACKER_VERSION_ID="$SAVED_CRACKER_VERSION_ID"
+        fi
+    fi
+fi
+
 # =============================================================================
 # CONFIGURATION STORAGE (OPTIONAL UPDATE)
 # =============================================================================
 
-if [[ "$FORCE_CONFIG_UPDATE" == true ]] || CONFIRMATION_DIALOG "Update saved Hashtopolis config from config.sh?"; then
+if [[ "$FORCE_CONFIG_UPDATE" == true ]]; then
+    # Force an update from config.sh (still warn on sample placeholders).
     if ! warn_if_sample_config; then
         exit 1
     fi
@@ -112,10 +214,32 @@ if [[ "$FORCE_CONFIG_UPDATE" == true ]] || CONFIRMATION_DIALOG "Update saved Has
         ERROR_DIALOG "Hashtopolis Upload - Failed to store config from config.sh. Check values."
         exit 1
     fi
+elif [[ "$HAS_SAVED_CONFIG" == true ]]; then
+    # Only prompt to update when config.sh differs from saved config and is not sample data.
+    if ! config_is_sample "$CFG_HASHTOPOLIS_URL" "$CFG_API_KEY" \
+        && { [[ "$CFG_HASHTOPOLIS_URL" != "$SAVED_HASHTOPOLIS_URL" ]] \
+            || [[ "$CFG_API_KEY" != "$SAVED_API_KEY" ]] \
+            || [[ "$CFG_HASH_TYPE" != "$SAVED_HASH_TYPE" ]] \
+            || [[ "$CFG_ACCESS_GROUP_ID" != "$SAVED_ACCESS_GROUP_ID" ]] \
+            || [[ "$CFG_SECRET_HASHLIST" != "$SAVED_SECRET_HASHLIST" ]] \
+            || [[ "$CFG_USE_BRAIN" != "$SAVED_USE_BRAIN" ]] \
+            || [[ "$CFG_BRAIN_FEATURES" != "$SAVED_BRAIN_FEATURES" ]] \
+            || [[ "$CFG_PRETASK_ID" != "$SAVED_PRETASK_ID" ]] \
+            || [[ "$CFG_CRACKER_VERSION_ID" != "$SAVED_CRACKER_VERSION_ID" ]]; }; then
+        if CONFIRMATION_DIALOG "config.sh differs from saved config. Update saved config now?"; then
+            if ! warn_if_sample_config; then
+                exit 1
+            fi
+            if ! push_payload_config; then
+                ERROR_DIALOG "Hashtopolis Upload - Failed to store config from config.sh. Check values."
+                exit 1
+            fi
+        fi
+    fi
 fi
 
 if ! load_payload_config; then
-    if CONFIRMATION_DIALOG "No saved Hashtopolis config found. Save from config.sh now?"; then
+    if CONFIRMATION_DIALOG "Hashtopolis config has not yet been saved. Pull and save from config.sh now?"; then
         if ! warn_if_sample_config; then
             exit 1
         fi
